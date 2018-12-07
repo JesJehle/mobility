@@ -29,7 +29,7 @@ def get_type(city_class, type,):
     gmaps = googlemaps.Client(key=google_api_key)
     radius = city_class.radius
     type = type
-    l_x = []
+    l_x = []pre
     l_y = []
     l_names = []
 
@@ -256,6 +256,9 @@ b = geoplot.polyplot(loerrach.buildings, linewidth=0.5)
 selection.plot(ax=b)
 
 gmaps = googlemaps.Client(key=google_api_key)
+
+loerrach.city_boundary.to_file('loerrach_boundary.shp')
+
 
 radius = loerrach.radius
 radius = 10000
