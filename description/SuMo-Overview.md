@@ -24,7 +24,6 @@ The SuMo project is a collaboration between the University of Freiburg, KIT Karl
 
 ## literature review of indicator methods
 
-
 ### Walkability index method review
 
 #### leslie 2007 --------------------------------------------------------------------------------
@@ -82,3 +81,65 @@ category [weight][count]
 * schools [1][1]
 * books [1][1]
 * entertainment [1][1]
+
+
+# Manaugh and EL - Validation walkability indices --
+
+Compared Methodas are:
+
+__Walkscore__
+
+__Walk Oppertunities__
+* Possible destinations are weighted based
+on, distance, size and importance.
+* The sum of the weighted intersection z-score and
+‘‘everyday’’ retail z-score combine to form the walk opportunities index.
+
+__Walbability index (WI)__
+* Frank et al. (2005)
+* assessed with residential density, retail floor ratio, street intersection density and land use mix.
+
+__Pedshed Connectivity__
+
+
+It seems likely, however, that walkability measures are not ‘‘one size fits all’’ but vary by trip purpose and socioeconomic characteristics of residents.
+
+Walkability can thus be understood as a:
+* match’’ between residents’ desires and expectations for types of destinations
+* their willingness to walk a given distance .
+* the quality of the required path.
+
+Neighborhoods that find this match between built form and residents’ needs will likely have more people walking in them. Focusing on built environment and land use characteristics misses this sense of neighborhood/individual interaction.
+
+Each model is consistent with regards to the control variables. Households with incomes less than $40,000 are significantly and positively associated with walking trips. Vehicle availability is significantly and negatively associated with pedestrian behavior. Finally, age and being female have a respective negative and positive association with walking; however
+neither variable is statistically significant.
+
+Take aways:
+* measure specific types of commercial and retail improved explanation of shopping behavior.
+
+
+# Moura et al (2017)- Measure Walbability for distinct groups --
+
+destinguish betreen accessible and attractivity
+
+Walkability is devided into 7 dimensions:
+* __Connected__: the extent to which the pedestrian network links
+to key trip origins and destinations, as well as the extent of
+linkages between different routes on the network.
+* __Convenient__: the extent to which walking is possible and able to
+compete with other modes of transport in terms of efficiency
+(time, money and space).
+* __Comfortable__: the extent to which walking is accommodated to
+capabilities and skills of all types of pedestrians with attributes
+and amenities that ease the walking experience
+* __Convivial__: the extent to which walking is a pleasant activity, in
+terms of interaction with people, the built and natural environment, encompassing social and recreation activities (Cervero &
+Duncan, 2003)
+* __Conspicuous__: the extent to which walking routes and public
+spaces are discernible and inviting for pedestrians, in terms of
+clear and legible signing and information and in terms of spatial
+legibility, complexity and coherence
+* __Coexistence__: the extent to which the pedestrian and other transport modes can coexist at the same time and place with order and peace. As pedestrians are the most vulnerable road users, the risk of traffic accidents may be one of the most significant concerns with walking (Koh & Wong, 2013), and the traffic volume together with a perceived car dominance along a route seem
+to be two other key factors.
+* __Commitment__: the extent to which there is evidence of engagement, liability and responsibility towards the pedestrian
+environment, by local communities and administration.

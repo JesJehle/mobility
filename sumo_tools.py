@@ -237,3 +237,35 @@ def aggregate_travel_time(travel_time_df):
 
     geo_df_selection.crs = {'init': 'epsg:4326'}
     return geo_df_selection
+
+
+def get_type(city_class, type,):
+
+    gmaps = googlemaps.Client(key=google_api_key)
+    radius = city_class.radius
+    type = type
+    l_x = []pre
+    l_y = []
+    l_names = []
+
+    for cell in city_class.grid.centroid:
+        x = cell.x
+        y = cell.y
+        location = [y, x]
+        places = gmaps.places_nearby(location=location, radius=radius, type=type)
+
+        for result in places['results']:
+            l_names.append(result['name'])
+            l_x.append(result['geometry']['location']['lng'])
+            l_y.append(result['geometry']['location']['lat'])
+
+    df = pd.DataFrame(
+        {'name': l_names,
+         'x': l_x,
+         'y': l_y})
+
+    df['Coordinates'] = list(zip(df.x, df.y))
+    df['Coordinates'] = df['Coordinates'].apply(Point)
+    gdf = gpd.GeoDataFrame(df, geometry='Coordinates')
+    gdf.crs = {'init': 'epsg:4326'}
+    return gdf

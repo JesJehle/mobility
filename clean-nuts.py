@@ -1,7 +1,7 @@
 import pandas as pd
 import geopandas as gpd
 
-    
+
 nuts_path = '../data/nuts/NUTS_RG_20M_2016_3035_LEVL_3.shp//'
 region_path = '../data/project_region/region.shp'
 kreise_path = '../data/vg250-ew_3112.utm32s.shape.ebenen/vg250-ew_ebenen/VG250_KRS.shp'
@@ -37,3 +37,6 @@ nuts_region['area'] = nuts_region.area
 nuts_region.sort_values('area')
 
 nuts_region.plot(column='area', legend=True)
+
+
+dfg
