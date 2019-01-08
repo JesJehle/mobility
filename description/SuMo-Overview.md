@@ -51,7 +51,7 @@ land use categories)
 The __walkability index__ is calculated using the above data sets. The 1–10 score for each measure (dwelling density, intersection density, land use and net retail area) is summed for each CCD resulting in a possible score of 4–40.
 
 
-### Walk Score Methodology ----------------------------------------------------------------------
+#### Walk Score Methodology ----------------------------------------------------------------------
 
 * Data sources: Business listing data from Google and Localeze, Road network data and park data from Open Street Map, School data from Education.com
 
@@ -83,7 +83,7 @@ category [weight][count]
 * entertainment [1][1]
 
 
-# Manaugh and EL - Validation walkability indices --
+#### Manaugh and EL - Validation walkability indices --
 
 Compared Methodas are:
 
@@ -118,7 +118,7 @@ Take aways:
 * measure specific types of commercial and retail improved explanation of shopping behavior.
 
 
-# Moura et al (2017)- Measure Walbability for distinct groups --
+#### Moura et al (2017)- Measure Walbability for distinct groups --
 
 destinguish betreen accessible and attractivity
 

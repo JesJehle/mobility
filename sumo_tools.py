@@ -123,7 +123,7 @@ def get_coords(address):
     lat = response_json['lat']
     lng = response_json['lng']
 
-    return ((lng, lat))
+    return [lat, lng]
 
 
 def get_address(point):
@@ -239,12 +239,12 @@ def aggregate_travel_time(travel_time_df):
     return geo_df_selection
 
 
-def get_type(city_class, type,):
+def get_type(city_class, type):
 
     gmaps = googlemaps.Client(key=google_api_key)
     radius = city_class.radius
     type = type
-    l_x = []pre
+    l_x = []
     l_y = []
     l_names = []
 
@@ -269,3 +269,10 @@ def get_type(city_class, type,):
     gdf = gpd.GeoDataFrame(df, geometry='Coordinates')
     gdf.crs = {'init': 'epsg:4326'}
     return gdf
+
+
+def get_streets(city_name, street_type='drive_service'):
+    city_boundary = ox.gdf_from_place(city_name).geometry.iloc[0]
+    drive_net = ox.graph_from_polygon(city_boundary, network_type=street_type)
+    drive_gpd = ox.graph_to_gdfs(drive_net, nodes=False)
+    return drive_gpd
