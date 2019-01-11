@@ -10,6 +10,13 @@ from numpy import round
 from math import sqrt
 
 
+class TrafficData():
+    def __init__(self, city_name, radius):
+        self.city_name = city_name
+
+    def get_data
+
+
 class SearchGrid():
     def __init__(self, city_name):
         self.name = city_name
