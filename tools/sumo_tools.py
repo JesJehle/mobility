@@ -276,3 +276,5 @@ def get_streets(city_name, street_type='drive_service'):
     drive_net = ox.graph_from_polygon(city_boundary, network_type=street_type)
     drive_gpd = ox.graph_to_gdfs(drive_net, nodes=False)
     return drive_gpd
+
+

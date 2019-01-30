@@ -13,4 +13,3 @@ grid_point = add_nearest_point(building, grid_cropped)
 points = grid_point.set_geometry('nearest_point').geometry
 
 destination_matrix = create_destination_matrix(points)
-

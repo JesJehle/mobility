@@ -32,7 +32,7 @@ with open('traffic-response2.json') as f:
     response_json = json.load(f)
 
 
-def get_key(json, key, key_list):
+def get_keys_from_json(json, key, key_list):
     if isinstance(json, dict):
         for keys in json:
             if keys == key:

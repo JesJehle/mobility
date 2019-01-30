@@ -1,51 +1,20 @@
 
-import geocoder
 import requests
 import re
 from pandas import DataFrame
 from geopandas import GeoDataFrame
 from shapely.geometry import Point, LineString, MultiLineString
-
-
+import osmnx as ox
+from utiles import get_coords_from_address, get_keys_from_json
 from api_keys import here_app_id, here_app_code
 
 
-class Helper():
-
-    @staticmethod
-    def get_coords_from_address(address):
-        response = geocoder.osm(address)
-        response_json = response.json
-        lat = response_json['lat']
-        lng = response_json['lng']
-
-        return [lat, lng]
-
-    @staticmethod
-    def get_keys(json, key, keyList):
-        if isinstance(json, dict):
-            for keys in json:
-                if keys == key:
-                    return(keyList.append(json[keys]))
-                Helper.get_keys(json[keys], key, keyList)
-        if isinstance(json, list):
-            for elements in json:
-                Helper.get_keys(elements, key, keyList)
-        return keyList
-
-    @staticmethod
-    def get_keys_from_json(json, key):
-        key_list = []
-        found_keys = Helper.get_keys(json, key, key_list)
-        return found_keys
-
-
-class TrafficData(Helper):
+class TrafficData():
     """Includes methods to download, clean and converts and exports traffic data"""
 
     def __init__(self, cityName):
         self.city_name = cityName
-        self.city_coords = Helper.get_coords_from_address(cityName)
+        self.city_coords = get_coords_from_address(cityName)
 
     def __str__(self):
         return 'TrafficData class for: \nCity: {} \nCoordinates: {}'.format(self.city_name, self.city_coords[0])
@@ -74,13 +43,36 @@ class TrafficData(Helper):
         self.radius = radius
         self.response = response.json()
 
+    def request_data_bbox(self):
+        """Alternative to request_data, tried to excess more data - failed!!!"""
+
+        city_b = ox.gdf_from_place(self.city_name)
+        bbox = [city_b.bbox_north[0], city_b.bbox_east[0],
+                city_b.bbox_south[0], city_b.bbox_west[0]]
+        bbox = list(map(str, bbox))
+        bbox = bbox[0] + ',' + bbox[1] + ';' + bbox[2] + ',' + bbox[3]
+
+        here_traffic_url = "https://traffic.api.here.com/traffic/6.1/flow.json"
+
+        params = {}
+        params['app_id'] = here_app_id
+        params['app_code'] = here_app_code
+        params['responseattributes'] = 'sh,fc'
+        #params['locationreferences'] = 'shp,tmc'
+        params['bbox'] = bbox
+        params['maxfunctionalclass'] = 5
+        params['minjamfactor'] = 0.1
+
+        response = requests.get(here_traffic_url, params=params)
+        self.response = response.json()
+
     def extract_geom(self):
         """extract geometry from response"""
 
         geom_list = []
-        shp = Helper.get_keys_from_json(self.response, 'SHP')
+        shp = get_keys_from_json(self.response, 'SHP')
         for geom in shp:
-            nested_geom_list = Helper.get_keys_from_json(geom, 'value')
+            nested_geom_list = get_keys_from_json(geom, 'value')
             flat_geom_list = [item for sublist in nested_geom_list for item in sublist]
             geom_list.append(flat_geom_list)
 
@@ -90,9 +82,9 @@ class TrafficData(Helper):
         """extract functional street classes from response"""
 
         fc_list = []
-        shp = Helper.get_keys_from_json(self.response, 'SHP')
+        shp = get_keys_from_json(self.response, 'SHP')
         for geom in shp:
-            flat_fc_list = Helper.get_keys_from_json(geom, 'FC')
+            flat_fc_list = get_keys_from_json(geom, 'FC')
             fc_list.append(flat_fc_list)
         fc_unique = [list(set(i))[0] for i in fc_list]
         return fc_unique
@@ -110,7 +102,7 @@ class TrafficData(Helper):
             SU: float Average Speed Uncut for the road segment.
 
         """
-        cf = Helper.get_keys_from_json(self.response, 'CF')
+        cf = get_keys_from_json(self.response, 'CF')
         self.sp_list = [items[0].get('SP') for items in cf]
         self.cn_list = [items[0].get('CN') for items in cf]
         self.jf_list = [items[0].get('JF') for items in cf]
@@ -130,7 +122,6 @@ class TrafficData(Helper):
                 f'Elements have no the same number: {len_test}')
 
     def convert_geom(self):
-
         geometry = []
         for shp in self.geom_list:
             lines_list = []
