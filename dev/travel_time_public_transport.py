@@ -124,6 +124,7 @@ for dep in range(len([1])):
         print(farest_point_geom)
         arr_y = farest_point_geom.geometry.y
         arr_x = farest_point_geom.geometry.x
+
         params['arr'] = str(arr_y.values[0]) + ',' + str(arr_x.values[0])
         # make request
         response = requests.get(transit_route_url, params=params)
