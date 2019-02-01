@@ -1,6 +1,8 @@
 import datetime
 from pandas import DataFrame
 import requests
+from geopandas import GeoDataFrame, sjoin
+from shapely.geometry import Point
 
 
 def format_time_for_request(time_datetime: datetime) -> str:
@@ -38,6 +40,9 @@ def request_pt_route(here_app_id:str, here_app_code:str, datetime:datetime, depy
 
 	response = requests.get(transit_route_url, params=params)
 	res_json = response.json()
+	if not res_json['Res'].get('Message') is None:
+		raise ValueError(res_json['Res'].get('Message'))
+
 	return res_json
 
 
@@ -85,5 +90,33 @@ def extract_travel_times(here_pt_response):
 		 'y': stops_y})
 
 	return stations_df
+
+
+
+
+def find_reached_stations(reached_stations_df, target_stations, buffer):
+	mean_travel_time = reached_stations_df.groupby('station').mean()
+	geometry = [Point(xy) for xy in zip(mean_travel_time.x, mean_travel_time.y)]
+	mean_travel_time['geometry'] = geometry
+	gdf_mean_travel_time = GeoDataFrame(mean_travel_time, geometry='geometry')
+	gdf_mean_travel_time.crs = {'init': 'epsg:4326'}
+
+	# create buffers for reached stations
+	crs_meters = {'init': 'epsg:25832'}
+	traveled_buffer = gdf_mean_travel_time.to_crs(crs_meters)
+	traveled_buffer['geometry'] = traveled_buffer.buffer(buffer)
+
+
+	target_stations_buffer = target_stations.to_crs(crs_meters)
+	target_stations_buffer['geometry'] = target_stations_buffer.buffer(buffer)
+
+	# join already reached stations with stations
+	stations_join = sjoin(target_stations_buffer, traveled_buffer[[
+		'travel_time', 'geometry']], how='left')
+
+	reached_stations_index = stations_join[stations_join['travel_time'].notna(
+	)]['station_id'].tolist()
+	return reached_stations_index
+
 
 
