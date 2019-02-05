@@ -1,8 +1,10 @@
 import datetime
-from pandas import DataFrame
 import requests
-from geopandas import GeoDataFrame, sjoin
+from geopandas import GeoDataFrame, sjoin, read_file
+import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Point
+from tools.api_keys import here_app_code, here_app_id
 
 
 def format_time_for_request(time_datetime: datetime) -> str:
@@ -41,9 +43,12 @@ def request_pt_route(here_app_id:str, here_app_code:str, datetime:datetime, depy
 	response = requests.get(transit_route_url, params=params)
 	res_json = response.json()
 	if not res_json['Res'].get('Message') is None:
-		raise ValueError(res_json['Res'].get('Message'))
+		if not res_json['Res'].get('Message').get('subcode') == 'DEP_ARR_TOO_CLOSE':
+			raise ValueError(res_json['Res'].get('Message'))
 
 	return res_json
+
+
 
 
 
@@ -58,16 +63,51 @@ def add_to_dict(times_dict, new_times, new_stations):
 	return times_dict
 
 
+
+
+
+def add_to_dict_xy(times_dict, new_times, new_stations, y, x):
+	for i in range(len(new_times)):
+		try:
+			times_dict[new_stations[i]]['travel_times'].append(new_times[i])
+		except KeyError:
+			times_dict.update(
+			{new_stations[i]: {'travel_times': [new_times[i]], 'y': y[i], 'x': x[i]}})
+
+	return times_dict
+
+
+
 def extract_travel_times(here_pt_response):
 	time = []
 	ids = []
 	stops_x = []
 	stops_y = []
 	names = []
+
 	for connection in here_pt_response['Res']['Connections']['Connection']:
 		dep_time_ = connection['Dep']['time']
 		for section in connection['Sections']['Sec']:
 			for i in section['Journey'].get('Stop', '0'):
+				if i == '0':
+					time_ = section['Arr'].get('time')
+					address = section['Arr'].get('Addr')
+					if address is None:
+						stn = section['Arr'].get('Stn')
+						ids.append(stn['id'])
+						stops_x.append(stn['x'])
+						stops_y.append(stn['y'])
+						names.append(stn['name'])
+						time_diff_ = get_time_difference(dep_time_, time_)
+						time.append(time_diff_)
+					else:
+						time_diff_ = get_time_difference(dep_time_, time_)
+						time.append(time_diff_)
+						ids.append('NoID')
+						stops_x.append(address['x'])
+						stops_y.append(address['y'])
+						names.append('Walk')
+
 				if isinstance(i, dict):
 					try:
 						time_ = i['arr']
@@ -82,7 +122,7 @@ def extract_travel_times(here_pt_response):
 						names.append(i['Stn']['name'])
 
 
-	stations_df = DataFrame.from_dict(
+	stations_df = pd.DataFrame.from_dict(
 		{'station': ids,
 		 'names': names,
 		 'travel_time': time,
@@ -94,7 +134,10 @@ def extract_travel_times(here_pt_response):
 
 
 
-def find_reached_stations(reached_stations_df, target_stations, buffer):
+def find_reached_stations(reached_stations_df: pd.DataFrame,
+						  target_stations: GeoDataFrame,
+						  buffer: int,
+						  counter: int = 1) -> list:
 	mean_travel_time = reached_stations_df.groupby('station').mean()
 	geometry = [Point(xy) for xy in zip(mean_travel_time.x, mean_travel_time.y)]
 	mean_travel_time['geometry'] = geometry
@@ -106,9 +149,14 @@ def find_reached_stations(reached_stations_df, target_stations, buffer):
 	traveled_buffer = gdf_mean_travel_time.to_crs(crs_meters)
 	traveled_buffer['geometry'] = traveled_buffer.buffer(buffer)
 
-
+	# buffer target stations
 	target_stations_buffer = target_stations.to_crs(crs_meters)
 	target_stations_buffer['geometry'] = target_stations_buffer.buffer(buffer)
+
+	# for debugging
+	# if buffer >= 50:
+	# 	traveled_buffer.to_file('data/debug/traveled_' + str(counter) + '.shp')
+	# 	target_stations_buffer.to_file('data/debug/target_' + str(counter) + '.shp')
 
 	# join already reached stations with stations
 	stations_join = sjoin(target_stations_buffer, traveled_buffer[[
@@ -117,6 +165,75 @@ def find_reached_stations(reached_stations_df, target_stations, buffer):
 	reached_stations_index = stations_join[stations_join['travel_time'].notna(
 	)]['station_id'].tolist()
 	return reached_stations_index
+
+
+
+
+def request_travel_times(target_stations:gpd.GeoDataFrame,
+                         origin:gpd.geoseries.GeoSeries,
+                         date_time:datetime.datetime):
+
+    times_dict = {}
+    last_index = 0
+    buffer = 50
+    counter = 1
+
+    while len(target_stations) > 0:
+
+
+        index_farest = target_stations.distance(origin.geometry).sort_values(ascending=False).head(1).index
+        farest_y = target_stations.loc[index_farest].geometry.centroid.y
+        farest_x = target_stations.loc[index_farest].geometry.centroid.x
+
+        pt_request = request_pt_route(here_app_id,
+                                      here_app_code,
+                                      date_time,
+                                      [origin.geometry.y,
+                                       origin.geometry.x],
+                                      [farest_y.iloc[0],
+                                       farest_x.iloc[0]],
+                                      False)
+        try:
+
+            travel_times = extract_travel_times(pt_request)
+
+            times_dict = add_to_dict_xy(times_dict,
+                                        travel_times['travel_time'].tolist(),
+                                        travel_times['station'].tolist(),
+                                        travel_times['y'].tolist(),
+                                        travel_times['x'].tolist())
+
+            if last_index == index_farest:
+                buffer = buffer + 50
+            else:
+                buffer = 50
+
+            reached_stations = find_reached_stations(travel_times,
+                                                     target_stations,
+                                                     buffer)
+
+            target_stations = target_stations[~target_stations['station_id'].isin(reached_stations)]
+
+            last_index = index_farest
+            counter += 1
+
+            print(counter, '. Round')
+            print(len(target_stations), ' stations left')
+            if buffer > 50:
+                print(buffer, ' buffer')
+        except:
+            print('Problem')
+            print(pt_request)
+            try:
+                target_stations = target_stations.loc[~index_farest]
+            except TypeError:
+                target_stations = target_stations.iloc[0:0]
+
+
+    return times_dict
+
+
+
 
 
 
