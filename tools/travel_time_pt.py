@@ -6,7 +6,6 @@ import pandas as pd
 from shapely.geometry import Point
 from tools.api_keys import here_app_code, here_app_id
 
-
 def format_time_for_request(time_datetime: datetime) -> str:
 	time = time_datetime.time().strftime('%H:%M:%S')
 	date = time_datetime.date().strftime('%Y-%m-%d')
@@ -167,73 +166,159 @@ def find_reached_stations(reached_stations_df: pd.DataFrame,
 	return reached_stations_index
 
 
+import betamax
+
+
+class PubTransRouter:
+
+
+
+	def __init__(self, app_id, app_code):
+		if app_id is None or app_code is None:
+			raise ValueError(
+				"A HERE app ID and app Code is needed."
+			)
+		self.session = requests.Session()
+		self.session.params = {}
+		self.session.params['app_id'] = app_id
+		self.session.params['app_code'] = app_code
+		self.session.params['routing'] = 'tt'
+
+		self.HERE_TRANSIT_ROUTING_URL = 'https://transit.api.here.com/v3/route.json'
+
+	def request_route(self, date_time:datetime, origin_yx:list, destination_yx:list, graph=True) -> dict:
+		self.session.params['time'] = format_time_for_request(date_time)
+		self.session.params['graph'] = int(graph)
+		self.session.params['dep'] = ','.join(list(map(str, origin_yx)))
+		self.session.params['arr'] = ','.join(list(map(str, destination_yx)))
+
+
+		# CASSETTE_LIBRARY_DIR = 'data/cassettes/'
+		# match_on = ['uri']
+		#
+		# recorder = betamax.Betamax(
+		# 	self.session, cassette_library_dir=CASSETTE_LIBRARY_DIR
+		# )
+		#
+		# with recorder.use_cassette('here_pub_trans_responses', record='new_episodes', match_requests_on=match_on):
+		# 	response = self.session.get(url=self.HERE_TRANSIT_ROUTING_URL)
+		#
+		#
+		response = self.session.get(url=self.HERE_TRANSIT_ROUTING_URL)
+
+		res_json = response.json()
+		if not res_json['Res'].get('Message') is None:
+			if not res_json['Res'].get('Message').get('subcode') == 'DEP_ARR_TOO_CLOSE':
+				raise ValueError(res_json['Res'].get('Message'))
+
+		return res_json
+
 
 
 def request_travel_times(target_stations:gpd.GeoDataFrame,
-                         origin:gpd.geoseries.GeoSeries,
-                         date_time:datetime.datetime):
+						 origin:gpd.geoseries.GeoSeries,
+						 date_time:datetime.datetime):
 
-    times_dict = {}
-    last_index = 0
-    buffer = 50
-    counter = 1
+	times_dict = {}
+	last_index = 0
+	buffer = 50
+	counter = 1
 
-    while len(target_stations) > 0:
+	router = PubTransRouter(here_app_id, here_app_code)
 
-
-        index_farest = target_stations.distance(origin.geometry).sort_values(ascending=False).head(1).index
-        farest_y = target_stations.loc[index_farest].geometry.centroid.y
-        farest_x = target_stations.loc[index_farest].geometry.centroid.x
-
-        pt_request = request_pt_route(here_app_id,
-                                      here_app_code,
-                                      date_time,
-                                      [origin.geometry.y,
-                                       origin.geometry.x],
-                                      [farest_y.iloc[0],
-                                       farest_x.iloc[0]],
-                                      False)
-        try:
-
-            travel_times = extract_travel_times(pt_request)
-
-            times_dict = add_to_dict_xy(times_dict,
-                                        travel_times['travel_time'].tolist(),
-                                        travel_times['station'].tolist(),
-                                        travel_times['y'].tolist(),
-                                        travel_times['x'].tolist())
-
-            if last_index == index_farest:
-                buffer = buffer + 50
-            else:
-                buffer = 50
-
-            reached_stations = find_reached_stations(travel_times,
-                                                     target_stations,
-                                                     buffer)
-
-            target_stations = target_stations[~target_stations['station_id'].isin(reached_stations)]
-
-            last_index = index_farest
-            counter += 1
-
-            print(counter, '. Round')
-            print(len(target_stations), ' stations left')
-            if buffer > 50:
-                print(buffer, ' buffer')
-        except:
-            print('Problem')
-            print(pt_request)
-            try:
-                target_stations = target_stations.loc[~index_farest]
-            except TypeError:
-                target_stations = target_stations.iloc[0:0]
+	while len(target_stations) > 0:
 
 
-    return times_dict
+		index_farest = target_stations.distance(origin.geometry).sort_values(ascending=False).head(1).index
+		farest_y = target_stations.loc[index_farest].geometry.centroid.y
+		farest_x = target_stations.loc[index_farest].geometry.centroid.x
+
+		pt_request = router.request_route(date_time,
+										  [origin.geometry.y,origin.geometry.x],
+										  [farest_y.iloc[0],farest_x.iloc[0]],
+										  False)
+		try:
+
+			travel_times = extract_travel_times(pt_request)
+
+			times_dict = add_to_dict_xy(times_dict,
+										travel_times['travel_time'].tolist(),
+										travel_times['station'].tolist(),
+										travel_times['y'].tolist(),
+										travel_times['x'].tolist())
+
+			if last_index == index_farest:
+				buffer = buffer + 50
+			else:
+				buffer = 50
+
+			reached_stations = find_reached_stations(travel_times,
+													 target_stations,
+													 buffer)
+
+			target_stations = target_stations[~target_stations['station_id'].isin(reached_stations)]
+
+			last_index = index_farest
+			counter += 1
+
+			print(counter, '. Round')
+			print(len(target_stations), ' stations left')
+			if buffer > 50:
+				print(buffer, ' buffer')
+		except:
+			print('Problem')
+			print(pt_request)
+			try:
+				target_stations = target_stations.loc[~index_farest]
+			except TypeError:
+				target_stations = target_stations.iloc[0:0]
 
 
+	return times_dict
 
+
+def create_travel_time_df(stations: gpd.GeoDataFrame, date_time: datetime):
+	stations_df = pd.DataFrame(columns=['station', 'depature', 'travel_time', 'x', 'y'])
+	outer_counter = 1
+
+	for ix, origin in stations.iterrows():
+		print(outer_counter, 'OUTER RUN')
+
+		travel_times_dict = request_travel_times(stations, origin, date_time)
+
+		travel_times_list = [pd.Series(v.get('travel_times')).mean().astype('int') for k, v in
+							 travel_times_dict.items()]
+		ids_list = [k for k, v in travel_times_dict.items()]
+		x_list = [v.get('x') for k, v in travel_times_dict.items()]
+		y_list = [v.get('y') for k, v in travel_times_dict.items()]
+
+		stations_new_df = pd.DataFrame.from_dict(
+			{'station': ids_list,
+			 'depature': [origin['station_id']] * len(ids_list),
+			 'travel_time': travel_times_list,
+			 'x': x_list,
+			 'y': y_list})
+
+		stations_df = pd.concat([stations_df, stations_new_df])
+		outer_counter += 1
+
+	# stations_df.to_csv('pt_travel_time_test_result.csv')
+	# stations_df = pd.read_csv('pt_travel_time_test_result.csv')
+	stations_df['travel_time'] = stations_df['travel_time'].astype(int)
+
+	return stations_df
+
+
+def get_accessibility_gdf(travel_time_df):
+	mean_accessibility = travel_time_df.groupby('station').mean()
+
+	mean_accessibility_gpd = mean_accessibility[['travel_time', 'x', 'y']]
+	geometry = [Point(xy) for xy in zip(mean_accessibility_gpd.x, mean_accessibility_gpd.y)]
+	mean_accessibility_gpd['geometry'] = geometry
+	mean_accessibility_gpd = GeoDataFrame(mean_accessibility_gpd, geometry='geometry')
+	mean_accessibility_gpd.crs = {'init': 'epsg:4326'}
+
+	return mean_accessibility_gpd
 
 
 
