@@ -77,34 +77,42 @@ def test_get_accessibility_gdf():
 
 
 
-import pandas as pd
-from geopandas import GeoDataFrame
-from shapely.geometry import Point
-from tools.travel_time_pt import get_accessibility_gdf
-stations_df = pd.read_csv('pt_travel_time_test_result.csv')
+from tools.travel_time_pt import get_iso_lines
 
+import geopandas as gpd
 
-stations_df
+target_stations = gpd.read_file('../data/freiburg/pt_accessibility.shp')
+target_stations.crs = {'init': 'epsg:4326'}
 
-mean_connectivity = stations_df[['depature', 'travel_time']].groupby('depature').mean()
+target_stations_iso = get_iso_lines(target_stations)
 
-mean_coords_id = stations_df.groupby('station').mean()
+points_gdf = target_stations
 
-pd.merge(mean_connectivity, mean_coords_id[['x', 'y']], on='station')
-
-mean_connectivity.index.names = ['station']
-
-.join(, on='station')
-
-mean_connectivity_gpd = mean_connectivity[['travel_time', 'x', 'y']]
-geometry = [Point(xy) for xy in zip(mean_connectivity_gpd.x, mean_connectivity_gpd.y)]
-mean_connectivity_gpd['geometry'] = geometry
-mean_connectivity_gpd = GeoDataFrame(mean_connectivity_gpd, geometry='geometry')
-
-
-mean_connectivity_gpd.crs = {'init': 'epsg:4326'}
-assert isinstance(test,GeoDataFrame )
-
-
-mean_connectivity_gpd.to_file('data/connectivity_sample.shp')
-
+#
+# travel_time_counts = travel_time_test.groupby('station').count()
+# station_index = travel_time_counts[travel_time_counts['travel_time'] > 150].index
+#
+# mean_station = travel_time_test.groupby('station').mean()
+# connectivity
+# import pandas as pd
+# from geopandas import GeoDataFrame
+# from shapely.geometry import Point
+# from tools.travel_time_pt import get_accessibility_gdf
+# stations_df = pd.read_csv('pt_travel_time_test_result.csv')
+#
+# mean_connectivity = stations_df[['depature', 'travel_time']].groupby('depature').mean()
+#
+# mean_coords_id = stations_df.groupby('station').mean()
+#
+# pd.merge(mean_connectivity, mean_coords_id[['x', 'y']], on='station')
+# mean_connectivity.index.names = ['station']
+#
+# .join(, on='station')
+# mean_connectivity_gpd = mean_connectivity[['travel_time', 'x', 'y']]
+# geometry = [Point(xy) for xy in zip(mean_connectivity_gpd.x, mean_connectivity_gpd.y)]
+# mean_connectivity_gpd['geometry'] = geometry
+# mean_connectivity_gpd = GeoDataFrame(mean_connectivity_gpd, geometry='geometry')
+# mean_connectivity_gpd.crs = {'init': 'epsg:4326'}
+# assert isinstance(test,GeoDataFrame )
+# mean_connectivity_gpd.to_file('data/connectivity_sample.shp')
+#

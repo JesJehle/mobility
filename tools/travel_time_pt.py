@@ -3,7 +3,7 @@ import requests
 from geopandas import GeoDataFrame, sjoin, read_file
 import geopandas as gpd
 import pandas as pd
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 from tools.api_keys import here_app_code, here_app_id
 
 def format_time_for_request(time_datetime: datetime) -> str:
@@ -310,15 +310,63 @@ def create_travel_time_df(stations: gpd.GeoDataFrame, date_time: datetime):
 
 
 def get_accessibility_gdf(travel_time_df):
-	mean_accessibility = travel_time_df.groupby('station').mean()
+	station_by_count = travel_time_df.groupby('station').count()
+	threshold = len(station_by_count) / 3
+	connected_stations = station_by_count[station_by_count['travel_time'] > threshold].index
 
-	mean_accessibility_gpd = mean_accessibility[['travel_time', 'x', 'y']]
+	mean_accessibility = travel_time_df.groupby('station').mean()
+	mean_accessibility_filtered = mean_accessibility.loc[connected_stations]
+	#mean_accessibility_filtered = mean_accessibility.loc[~mean_accessibility_filtered.index.isin(['NoID'])]
+
+	mean_accessibility_gpd = mean_accessibility_filtered[['travel_time', 'x', 'y']]
 	geometry = [Point(xy) for xy in zip(mean_accessibility_gpd.x, mean_accessibility_gpd.y)]
 	mean_accessibility_gpd['geometry'] = geometry
 	mean_accessibility_gpd = GeoDataFrame(mean_accessibility_gpd, geometry='geometry')
 	mean_accessibility_gpd.crs = {'init': 'epsg:4326'}
-
+	mean_accessibility_gpd.reset_index(level=0, inplace=True)
+	mean_accessibility_gpd = mean_accessibility_gpd[mean_accessibility_gpd['station'] != 'NoID']
 	return mean_accessibility_gpd
 
 
+
+def get_iso_lines(points_gdf, times=[1, 5, 11]):
+
+
+	iso_df = pd.DataFrame.from_dict(
+		{'station': points_gdf['station'].tolist()})
+
+
+	session = requests.Session()
+	session.params = {}
+	isochrone_url = 'https://isoline.route.api.here.com/routing/7.2/calculateisoline.json'
+	session.params = {}
+	session.params['app_code'] = here_app_code
+	session.params['app_id'] = here_app_id
+	session.params['mode'] = 'fastest;pedestrian'
+	session.params['rangetype'] = 'time'
+
+	for time in times:
+
+		session.params['range'] = time * 60
+		iso_poly = []
+
+		for i in range(len(points_gdf)):
+
+			test_iso = points_gdf.iloc[i]
+			test_iso_x = test_iso.geometry.x
+			test_iso_y = test_iso.geometry.y
+
+			session.params['start'] = 'geo!' + str(test_iso_y) + ',' + str(test_iso_x)
+
+			response_iso = session.get(url=isochrone_url)
+			resp_iso_json = response_iso.json()
+
+			shape_list = resp_iso_json['response']['isoline'][0]['component'][0]['shape']
+
+			iso_poly.append(Polygon([list(map(float, reversed(yx.split(','))))
+									 for yx in shape_list]))
+			print('For', time, ': ', i, 'of 100')
+		iso_df['iso' + str(time)] = iso_poly
+
+	return iso_df
 
