@@ -77,18 +77,246 @@ def test_get_accessibility_gdf():
 
 
 
-from tools.travel_time_pt import get_iso_lines
-
+from tools.travel_time_pt import get_iso_lines, clip_by_attribute
+import pandas as pd
+import matplotlib as plt
 import geopandas as gpd
+
+plt.interactive(True)
+pd.set_option('display.max_columns', 500)
+
 
 target_stations = gpd.read_file('../data/freiburg/pt_accessibility.shp')
 target_stations.crs = {'init': 'epsg:4326'}
 
 target_stations_iso = get_iso_lines(target_stations)
+target_stations_iso.to_file('../data/freiburg/iso_all.shp')
 
-points_gdf = target_stations
+iso_clipped = clip_by_attribute(target_stations_iso, 'iso_time')
+
+sum(iso_clipped.geometry.is_empty)
+
+
+iso_all_clean = iso_clipped.loc[~iso_clipped.geometry.is_empty]
+iso_clipped.loc[~iso_clipped.geometry.is_empty].plot(column='iso_time', legend=True)
+
+
+iso_all_clean
+
+target_stations_iso.to_file('../data/freiburg/iso_all.shp')
+broken_index = iso_all_clean.index.isin(broken_geometries)
+iso_all_c = iso_all_clean.iloc[~broken_index]
+
+iso_all_c['iso_distance'] = iso_all_c['iso_distance'].astype(int)
+iso_all_c['iso_time'] = iso_all_c['iso_time'].astype(int)
+
+iso_all_c.dtypes
+
+iso_all_c.to_file('../data/freiburg/iso_all_clean.shp')
+
+iso_all_clean[]
+
+iso_all_clean.crs
+broken_geometries = []
+
+
+for i, row in iso_all_clean.iterrows():
+    try:
+        gpd.GeoSeries(row.geometry).is_simple
+    except:
+        broken_geometries.append(i)
+
+
+iso_clipped.iloc[3:4].plot()
+
+gdf = target_stations_iso
+from shapely.geometry import Polygon
+import pandas as pd
+import matplotlib as plt
+import geopandas as gpd
+
+
+
+
+
+
+gdf_new.plot(column='iso_time')
+iso_clipped[index:index+1].plot()
+
+gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(new_geom))
+gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
+gdf_union_renamed.plot()
 
 #
+#
+#
+# for i in ['1', '5', '10']:
+#     target_stations_iso[['station', 'iso' + i +'travel_time', 'iso' + i +'geometry']].set_geometry('iso' + i +'geometry').to_file('../data/freiburg/iso_' + i +'_freiburg.shp')
+#
+#
+# iso_1 = gpd.read_file('../data/freiburg/iso_1_freiburg.shp')
+# iso_1.crs = {'init': 'epsg:4326'}
+# iso_5 = gpd.read_file('../data/freiburg/iso_5_freiburg.shp')
+# iso_1.crs = {'init': 'epsg:4326'}
+# iso_10 = gpd.read_file('../data/freiburg/iso_10_freiburg.shp')
+# iso_10.crs = {'init': 'epsg:4326'}
+#
+#
+# pd.concat([iso_1,iso_5, iso_10])
+#
+#
+# def create_union_gdf(gdf):
+#     gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(gdf.unary_union))
+#     gdf_union_renamed = gdf_union.rename(columns={0:'geometry'}).set_geometry('geometry')
+#     return gdf_union_renamed
+#
+#
+#
+#
+#
+# iso_1_5_diff = gpd.overlay(iso_5, create_union_gdf(iso_1), how='difference')
+# iso_5_10_diff = gpd.overlay(iso_10, create_union_gdf(iso_5), how='difference')
+#
+# iso_5_10_diff.to_file('../data/freiburg/iso_diff.shp')
+#
+# continents = world.dissolve(by='continent', aggfunc='sum')
+#
+#
+# iso_1_5.plot()
+# iso_1_5.to_file('../data/freiburg/iso_diff.shp')
+# world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+#
+# world.plot()
+# world = world[['continent', 'geometry', 'pop_est']]
+# continents = world.dissolve(by='continent', aggfunc='sum')
+# continents.plot()
+#
+
+
+# example
+
+from shapely.geometry import Polygon
+import pandas as pd
+import matplotlib as plt
+import geopandas as gpd
+
+plt.interactive(True)
+pd.set_option('display.max_columns', 500)
+
+
+polys1 = gpd.GeoSeries([Polygon([(0,0), (2,0), (2,2), (0,2)]), Polygon([(1,1), (3,1), (3,3), (1,3)]), Polygon([(0.5, 0.5), (2.5,0.5), (2.5,2.5), (0.5,2.5)])])
+# polys2 = gpd.GeoSeries([Polygon([(1,1), (3,1), (3,3), (1,3)])])
+
+df1 = gpd.GeoDataFrame({'geometry': polys1, 'value':[1, 3, 5], 'in': [1,2,3]})
+# df2 = gpd.GeoDataFrame({'geometry': polys2, 'df2':[1]})
+
+df1.plot(column='value', legend=True)
+
+test_1 = df1.iloc[0:1]
+test_1.plot(column='value', legend=True)
+
+test_2 = df1.iloc[2:3]
+test_2.plot(column='value', legend=True)
+
+test_2.intersects(test_1.geometry)
+
+
+df_2.iloc[0:1].plot(column='value', legend=True)
+df1.iloc[0:1].plot(column='value', legend=True)
+
+
+df_2 = clip_by_attribute(df1, 'value')
+
+
+
+def clip_by_attribute(gdf, attr):
+    gdf_new = gdf.copy()
+
+    for index, row in gdf_new.iterrows():
+        # diff_index = df1.index.difference(index)
+        index_in = gdf_new.index.isin([index])
+        diff_gdf = gdf_new.iloc[~index_in]
+
+        is_intersection = diff_gdf.intersects(row.geometry)
+
+        gdf_intersection = diff_gdf.loc[is_intersection]
+
+        highest_intersection = gdf_intersection.sort_values(attr, ascending=False).head(1).iloc[0]
+
+        if highest_intersection[attr] > row[attr]:
+            print(highest_intersection[attr], 'is bigger then', row[attr])
+            new_geom = row.geometry.difference(highest_intersection.geometry)
+            gdf_new.at[index, 'geometry'] = new_geom
+
+    return gdf_new
+
+
+
+
+
+
+    for i, r in gdf_intersection.iterrows():
+        if r['value'] > row['value']:
+            print(r['value'], 'is bigger then', row['value'])
+            new_geom = row.geometry.difference(r.geometry)
+            inx = r['in']
+            df1.at[inx, 'in']
+            gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(new_geom))
+            gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
+            gdf_union_renamed.plot()
+
+
+            df1[df1['in'] == r['in']]['geometry'] = new_geom
+
+    #print(geom_diff)
+
+df1.iloc[0:1].plot(column='value', legend=True)
+
+
+r_gdf = gpd.GeoDataFrame(r.geometry.difference(row.geometry))
+type(r_gdf)
+r_gdf.plot()
+gdf_union_renamed = r_gdf.rename(columns={0: 'geometry'}).set_geometry('geometry')
+gdf_union_renamed.plot()
+gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(r.geometry.difference(row.geometry)))
+gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
+gdf_union_renamed.plot()
+
+    #row.geometry.intersects(geom_1)
+
+row = df1.iloc[0]
+
+
+
+rest = df1.loc[diff_index]
+
+geometry
+geom_1 = df1.iloc[1].geometry
+
+geom_0.intersects(geom_1)
+
+geom_diff = geom_1.difference(geom_0)
+
+gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(geom_diff))
+gdf_union_renamed = gdf_union.rename(columns={0:'geometry'}).set_geometry('geometry')
+gdf_union_renamed.plot()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # travel_time_counts = travel_time_test.groupby('station').count()
 # station_index = travel_time_counts[travel_time_counts['travel_time'] > 150].index
 #

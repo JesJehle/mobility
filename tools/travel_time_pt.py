@@ -329,12 +329,9 @@ def get_accessibility_gdf(travel_time_df):
 
 
 
-def get_iso_lines(points_gdf, times=[1, 5, 11]):
+def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 
-
-	iso_df = pd.DataFrame.from_dict(
-		{'station': points_gdf['station'].tolist()})
-
+	iso_df = pd.DataFrame(columns=['station', 'iso_time','iso_distance', 'geometry'])
 
 	session = requests.Session()
 	session.params = {}
@@ -346,6 +343,9 @@ def get_iso_lines(points_gdf, times=[1, 5, 11]):
 	session.params['rangetype'] = 'time'
 
 	for time in times:
+
+		iso_df_temp = pd.DataFrame.from_dict(
+			{'station': points_gdf['station'].tolist()})
 
 		session.params['range'] = time * 60
 		iso_poly = []
@@ -365,8 +365,40 @@ def get_iso_lines(points_gdf, times=[1, 5, 11]):
 
 			iso_poly.append(Polygon([list(map(float, reversed(yx.split(','))))
 									 for yx in shape_list]))
-			print('For', time, ': ', i, 'of 100')
-		iso_df['iso' + str(time)] = iso_poly
+			print('For', time, ': ', i, 'of', len(points_gdf))
 
-	return iso_df
+
+		iso_df_temp['geometry'] = iso_poly
+		iso_df_temp['iso_time'] = pd.Series(points_gdf['travel_tim'] + time).astype(int)
+		iso_df_temp['iso_distance'] = time
+		iso_df = iso_df.append(iso_df_temp)
+
+	iso_gdf = gpd.GeoDataFrame(iso_df, geometry='geometry').reset_index()
+	iso_gdf.crs = {'init': 'epsg:4326'}
+
+	return iso_gdf
+
+
+
+def clip_by_attribute(gdf, attr):
+    gdf_new = gdf.copy()
+
+    for index, row in gdf_new.iterrows():
+
+        # diff_index = df1.index.difference(index)
+        index_in = gdf_new.index.isin([index])
+        diff_gdf = gdf_new.iloc[~index_in]
+        is_intersection = diff_gdf.intersects(row.geometry)
+
+        gdf_intersection = diff_gdf.loc[is_intersection]
+
+        if not len(gdf_intersection) == 0:
+            # highest_intersection = gdf_intersection.sort_values(attr).iloc[0]
+            for ind, ro in gdf_intersection.iterrows():
+                if ro[attr] > row[attr]:
+                    print(ro[attr], 'is higher then', row[attr])
+                    new_geom = ro.geometry.difference(row.geometry)
+                    gdf_new.at[ind, 'geometry'] = new_geom
+
+    return gdf_new
 
