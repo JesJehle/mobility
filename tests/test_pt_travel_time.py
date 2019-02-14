@@ -40,8 +40,7 @@ def test_find_reached_stations():
     from geopandas import read_file
     import pandas as pd
 
-    target_stations = read_file('data/test_sample_target_stations.shp')
-    target_stations.crs = {'init': 'epsg:4326'}
+    target_stations = read_file('data/test_sample_target_stations.geojson')
     stations_df = pd.read_csv('data/test_station_df.csv')
     found_stations = find_reached_stations(stations_df, target_stations, 50)
     assert isinstance(found_stations, list)
@@ -55,99 +54,110 @@ def test_create_travel_time_df():
     from pandas import DataFrame
     import datetime
 
-    target_stations = gpd.read_file('data/test_sample_target_stations.shp')
+    target_stations = gpd.read_file('data/test_sample_target_stations.geojson')
     target_stations.crs = {'init': 'epsg:4326'}
     target_stations = target_stations[['station_id', 'geometry']]
     # origin = target_stations.sample(1).geometry
     date_time = datetime.datetime(2019, 2, 2, 10, 0)
-    travel_time_test = create_travel_time_df(target_stations.sample(2), date_time)
+    travel_time_test = create_travel_time_df(target_stations.sample(4).reset_index(), date_time)
 
     assert isinstance(travel_time_test, DataFrame)
-
 
 
 def test_get_accessibility_gdf():
     import pandas as pd
     from geopandas import GeoDataFrame
     from tools.travel_time_pt import get_accessibility_gdf
-    stations_df = pd.read_csv('pt_travel_time_test_result.csv')
+    stations_df = pd.read_csv('data/pt_travel_time_df.csv')
     test = get_accessibility_gdf(stations_df)
     assert isinstance(test,GeoDataFrame )
 
 
 
+def test_get_iso_lines():
+    import geopandas as gpd
+    from tools.travel_time_pt import get_iso_lines
 
-from tools.travel_time_pt import get_iso_lines, clip_by_attribute
-import pandas as pd
-import matplotlib as plt
-import geopandas as gpd
+    target_stations = gpd.read_file('data/accessibility_test.geojson')
+    travel_time_test = get_iso_lines(target_stations)
 
-plt.interactive(True)
-pd.set_option('display.max_columns', 500)
-
-
-target_stations = gpd.read_file('../data/freiburg/pt_accessibility.shp')
-target_stations.crs = {'init': 'epsg:4326'}
-
-target_stations_iso = get_iso_lines(target_stations)
-target_stations_iso.to_file('../data/freiburg/iso_all.shp')
-
-iso_clipped = clip_by_attribute(target_stations_iso, 'iso_time')
-
-sum(iso_clipped.geometry.is_empty)
+    assert isinstance(travel_time_test, gpd.GeoDataFrame)
 
 
-iso_all_clean = iso_clipped.loc[~iso_clipped.geometry.is_empty]
-iso_clipped.loc[~iso_clipped.geometry.is_empty].plot(column='iso_time', legend=True)
+
+def test_clip_by_attribute():
+    import geopandas as gpd
+    from tools.travel_time_pt import clip_by_attribute
+
+    iso_test = gpd.read_file('data/test_pt_iso.geosjon')
+    iso_clipped = clip_by_attribute(iso_test)
+
+    assert isinstance(iso_clipped, gpd.GeoDataFrame)
 
 
-iso_all_clean
+def test_clean_clipped_iso():
+    import geopandas as gpd
+    from tools.travel_time_pt import clip_by_attribute, clean_clipped_iso
 
-target_stations_iso.to_file('../data/freiburg/iso_all.shp')
-broken_index = iso_all_clean.index.isin(broken_geometries)
-iso_all_c = iso_all_clean.iloc[~broken_index]
+    iso_test = gpd.read_file('data/test_pt_iso.geosjon')
+    iso_clipped = clip_by_attribute(iso_test)
+    iso_clean = clean_clipped_iso(iso_clipped)
 
-iso_all_c['iso_distance'] = iso_all_c['iso_distance'].astype(int)
-iso_all_c['iso_time'] = iso_all_c['iso_time'].astype(int)
-
-iso_all_c.dtypes
-
-iso_all_c.to_file('../data/freiburg/iso_all_clean.shp')
-
-iso_all_clean[]
-
-iso_all_clean.crs
-broken_geometries = []
-
-
-for i, row in iso_all_clean.iterrows():
-    try:
-        gpd.GeoSeries(row.geometry).is_simple
-    except:
-        broken_geometries.append(i)
-
-
-iso_clipped.iloc[3:4].plot()
-
-gdf = target_stations_iso
-from shapely.geometry import Polygon
-import pandas as pd
-import matplotlib as plt
-import geopandas as gpd
+    assert isinstance(iso_clean, gpd.GeoDataFrame)
+    assert set(iso_clean.is_simple)
 
 
 
 
 
-
-gdf_new.plot(column='iso_time')
-iso_clipped[index:index+1].plot()
-
-gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(new_geom))
-gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
-gdf_union_renamed.plot()
 
 #
+# from tools.travel_time_pt import get_iso_lines, clip_by_attribute
+# import pandas as pd
+# import matplotlib as plt
+# import geopandas as gpd
+#
+# plt.interactive(True)
+# pd.set_option('display.max_columns', 500)
+#
+#
+# target_stations = gpd.read_file('../data/freiburg/pt_accessibility.shp')
+# target_stations.crs = {'init': 'epsg:4326'}
+#
+# target_stations_iso = get_iso_lines(target_stations)
+# target_stations_iso.to_file('../data/freiburg/iso_all.shp')
+#
+#
+# target_stations_iso = gpd.read_file('../data/freiburg/iso_all.shp')
+# target_stations_iso_rename = target_stations_iso.rename(columns={'iso_distan':'iso_dist'})
+#
+# iso_clipped = clip_by_attribute(target_stations_iso_rename, 'iso_time')
+
+# sum(iso_clipped.geometry.is_empty)
+#
+#
+# dist_index = target_stations_iso.columns.str.contains('dist')
+#
+# old_name = target_stations_iso.columns[dist_index].get_values()[0]
+#
+# iso_clipped_new = iso_clipped.rename(columns={old_name: 'iso_distance'})
+#
+#
+# target_stations_iso.loc[:, dist_index]
+#
+# 'dist' in target_stations_iso.columns
+
+
+#
+#
+# gdf_new.plot(column='iso_time')
+# iso_clipped[index:index+1].plot()
+#
+# gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(new_geom))
+# gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
+# gdf_union_renamed.plot()
+#
+# #
 #
 #
 # for i in ['1', '5', '10']:
@@ -192,126 +202,41 @@ gdf_union_renamed.plot()
 # continents.plot()
 #
 
-
-# example
-
-from shapely.geometry import Polygon
-import pandas as pd
-import matplotlib as plt
-import geopandas as gpd
-
-plt.interactive(True)
-pd.set_option('display.max_columns', 500)
-
-
-polys1 = gpd.GeoSeries([Polygon([(0,0), (2,0), (2,2), (0,2)]), Polygon([(1,1), (3,1), (3,3), (1,3)]), Polygon([(0.5, 0.5), (2.5,0.5), (2.5,2.5), (0.5,2.5)])])
-# polys2 = gpd.GeoSeries([Polygon([(1,1), (3,1), (3,3), (1,3)])])
-
-df1 = gpd.GeoDataFrame({'geometry': polys1, 'value':[1, 3, 5], 'in': [1,2,3]})
-# df2 = gpd.GeoDataFrame({'geometry': polys2, 'df2':[1]})
-
-df1.plot(column='value', legend=True)
-
-test_1 = df1.iloc[0:1]
-test_1.plot(column='value', legend=True)
-
-test_2 = df1.iloc[2:3]
-test_2.plot(column='value', legend=True)
-
-test_2.intersects(test_1.geometry)
-
-
-df_2.iloc[0:1].plot(column='value', legend=True)
-df1.iloc[0:1].plot(column='value', legend=True)
-
-
-df_2 = clip_by_attribute(df1, 'value')
-
-
-
-def clip_by_attribute(gdf, attr):
-    gdf_new = gdf.copy()
-
-    for index, row in gdf_new.iterrows():
-        # diff_index = df1.index.difference(index)
-        index_in = gdf_new.index.isin([index])
-        diff_gdf = gdf_new.iloc[~index_in]
-
-        is_intersection = diff_gdf.intersects(row.geometry)
-
-        gdf_intersection = diff_gdf.loc[is_intersection]
-
-        highest_intersection = gdf_intersection.sort_values(attr, ascending=False).head(1).iloc[0]
-
-        if highest_intersection[attr] > row[attr]:
-            print(highest_intersection[attr], 'is bigger then', row[attr])
-            new_geom = row.geometry.difference(highest_intersection.geometry)
-            gdf_new.at[index, 'geometry'] = new_geom
-
-    return gdf_new
-
-
-
-
-
-
-    for i, r in gdf_intersection.iterrows():
-        if r['value'] > row['value']:
-            print(r['value'], 'is bigger then', row['value'])
-            new_geom = row.geometry.difference(r.geometry)
-            inx = r['in']
-            df1.at[inx, 'in']
-            gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(new_geom))
-            gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
-            gdf_union_renamed.plot()
-
-
-            df1[df1['in'] == r['in']]['geometry'] = new_geom
-
-    #print(geom_diff)
-
-df1.iloc[0:1].plot(column='value', legend=True)
-
-
-r_gdf = gpd.GeoDataFrame(r.geometry.difference(row.geometry))
-type(r_gdf)
-r_gdf.plot()
-gdf_union_renamed = r_gdf.rename(columns={0: 'geometry'}).set_geometry('geometry')
-gdf_union_renamed.plot()
-gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(r.geometry.difference(row.geometry)))
-gdf_union_renamed = gdf_union.rename(columns={0: 'geometry'}).set_geometry('geometry')
-gdf_union_renamed.plot()
-
-    #row.geometry.intersects(geom_1)
-
-row = df1.iloc[0]
-
-
-
-rest = df1.loc[diff_index]
-
-geometry
-geom_1 = df1.iloc[1].geometry
-
-geom_0.intersects(geom_1)
-
-geom_diff = geom_1.difference(geom_0)
-
-gdf_union = gpd.GeoDataFrame(gpd.GeoSeries(geom_diff))
-gdf_union_renamed = gdf_union.rename(columns={0:'geometry'}).set_geometry('geometry')
-gdf_union_renamed.plot()
-
-
-
-
-
-
-
-
-
-
-
-
+#
+# # example
+#
+# from shapely.geometry import Polygon
+# import pandas as pd
+# import matplotlib as plt
+# import geopandas as gpd
+#
+# plt.interactive(True)
+# pd.set_option('display.max_columns', 500)
+#
+#
+# polys1 = gpd.GeoSeries([Polygon([(0,0), (2,0), (2,2), (0,2)]), Polygon([(1,1), (3,1), (3,3), (1,3)]), Polygon([(0.5, 0.5), (2.5,0.5), (2.5,2.5), (0.5,2.5)])])
+# # polys2 = gpd.GeoSeries([Polygon([(1,1), (3,1), (3,3), (1,3)])])
+#
+# df1 = gpd.GeoDataFrame({'geometry': polys1, 'value':[1, 3, 5], 'in': [1,2,3]})
+# # df2 = gpd.GeoDataFrame({'geometry': polys2, 'df2':[1]})
+#
+# df1.plot(column='value', legend=True)
+#
+# test_1 = df1.iloc[0:1]
+# test_1.plot(column='value', legend=True)
+#
+# test_2 = df1.iloc[2:3]
+# test_2.plot(column='value', legend=True)
+#
+# test_2.intersects(test_1.geometry)
+#
+#
+# df_2.iloc[0:1].plot(column='value', legend=True)
+# df1.iloc[0:1].plot(column='value', legend=True)
+#
+#
+# df_2 = clip_by_attribute(df1, 'value')
+#
 
 
 

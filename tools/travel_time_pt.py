@@ -278,7 +278,7 @@ def request_travel_times(target_stations:gpd.GeoDataFrame,
 
 
 def create_travel_time_df(stations: gpd.GeoDataFrame, date_time: datetime):
-	stations_df = pd.DataFrame(columns=['station', 'depature', 'travel_time', 'x', 'y'])
+	stations_df = pd.DataFrame(columns=['station_id', 'depature', 'travel_time', 'x', 'y'])
 	outer_counter = 1
 
 	for ix, origin in stations.iterrows():
@@ -293,7 +293,7 @@ def create_travel_time_df(stations: gpd.GeoDataFrame, date_time: datetime):
 		y_list = [v.get('y') for k, v in travel_times_dict.items()]
 
 		stations_new_df = pd.DataFrame.from_dict(
-			{'station': ids_list,
+			{'station_id': ids_list,
 			 'depature': [origin['station_id']] * len(ids_list),
 			 'travel_time': travel_times_list,
 			 'x': x_list,
@@ -310,11 +310,11 @@ def create_travel_time_df(stations: gpd.GeoDataFrame, date_time: datetime):
 
 
 def get_accessibility_gdf(travel_time_df):
-	station_by_count = travel_time_df.groupby('station').count()
+	station_by_count = travel_time_df.groupby('station_id').count()
 	threshold = len(station_by_count) / 3
 	connected_stations = station_by_count[station_by_count['travel_time'] > threshold].index
 
-	mean_accessibility = travel_time_df.groupby('station').mean()
+	mean_accessibility = travel_time_df.groupby('station_id').mean()
 	mean_accessibility_filtered = mean_accessibility.loc[connected_stations]
 	#mean_accessibility_filtered = mean_accessibility.loc[~mean_accessibility_filtered.index.isin(['NoID'])]
 
@@ -324,14 +324,14 @@ def get_accessibility_gdf(travel_time_df):
 	mean_accessibility_gpd = GeoDataFrame(mean_accessibility_gpd, geometry='geometry')
 	mean_accessibility_gpd.crs = {'init': 'epsg:4326'}
 	mean_accessibility_gpd.reset_index(level=0, inplace=True)
-	mean_accessibility_gpd = mean_accessibility_gpd[mean_accessibility_gpd['station'] != 'NoID']
+	mean_accessibility_gpd = mean_accessibility_gpd[mean_accessibility_gpd['station_id'] != 'NoID']
 	return mean_accessibility_gpd
 
 
 
 def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 
-	iso_df = pd.DataFrame(columns=['station', 'iso_time','iso_distance', 'geometry'])
+	iso_df = pd.DataFrame(columns=['station_id', 'iso_time','iso_dist', 'geometry'])
 
 	session = requests.Session()
 	session.params = {}
@@ -345,7 +345,7 @@ def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 	for time in times:
 
 		iso_df_temp = pd.DataFrame.from_dict(
-			{'station': points_gdf['station'].tolist()})
+			{'station_id': points_gdf['station_id'].tolist()})
 
 		session.params['range'] = time * 60
 		iso_poly = []
@@ -369,9 +369,9 @@ def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 
 
 		iso_df_temp['geometry'] = iso_poly
-		iso_df_temp['iso_time'] = pd.Series(points_gdf['travel_tim'] + time).astype(int)
-		iso_df_temp['iso_distance'] = time
-		iso_df = iso_df.append(iso_df_temp)
+		iso_df_temp['iso_time'] = pd.Series(points_gdf['travel_time'] + time).astype(int)
+		iso_df_temp['iso_dist'] = time
+		iso_df = iso_df.append(iso_df_temp, sort=False)
 
 	iso_gdf = gpd.GeoDataFrame(iso_df, geometry='geometry').reset_index()
 	iso_gdf.crs = {'init': 'epsg:4326'}
@@ -380,25 +380,50 @@ def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 
 
 
-def clip_by_attribute(gdf, attr):
-    gdf_new = gdf.copy()
+def clip_by_attribute(gdf, attr='iso_time'):
+	gdf_new = gdf.copy()
 
-    for index, row in gdf_new.iterrows():
+	for index, row in gdf_new.iterrows():
 
-        # diff_index = df1.index.difference(index)
-        index_in = gdf_new.index.isin([index])
-        diff_gdf = gdf_new.iloc[~index_in]
-        is_intersection = diff_gdf.intersects(row.geometry)
+		# diff_index = df1.index.difference(index)
+		index_in = gdf_new.index.isin([index])
+		diff_gdf = gdf_new.iloc[~index_in]
+		is_intersection = diff_gdf.intersects(row.geometry)
 
-        gdf_intersection = diff_gdf.loc[is_intersection]
+		gdf_intersection = diff_gdf.loc[is_intersection]
 
-        if not len(gdf_intersection) == 0:
-            # highest_intersection = gdf_intersection.sort_values(attr).iloc[0]
-            for ind, ro in gdf_intersection.iterrows():
-                if ro[attr] > row[attr]:
-                    print(ro[attr], 'is higher then', row[attr])
-                    new_geom = ro.geometry.difference(row.geometry)
-                    gdf_new.at[ind, 'geometry'] = new_geom
+		if not len(gdf_intersection) == 0:
+			# highest_intersection = gdf_intersection.sort_values(attr).iloc[0]
+			for ind, ro in gdf_intersection.iterrows():
+				if ro[attr] > row[attr]:
+					# print(ro[attr], 'is higher then', row[attr])
+					print(index, 'of', len(gdf_new))
+					new_geom = ro.geometry.difference(row.geometry)
+					gdf_new.at[ind, 'geometry'] = new_geom
 
-    return gdf_new
+	return gdf_new
+
+
+
+def clean_clipped_iso(iso_clipped_gdf):
+	# convert column dtypes
+	iso_clipped_gdf['iso_dist'] = iso_clipped_gdf['iso_dist'].astype(int)
+	iso_clipped_gdf['iso_time'] = iso_clipped_gdf['iso_time'].astype(int)
+
+	# exclude empty geometries
+	iso_clean = iso_clipped_gdf.loc[~iso_clipped_gdf.geometry.is_empty]
+
+	# search for geometries that intersect themselves one by one
+	broken_geometries = []
+	for i, row in iso_clean.iterrows():
+		try:
+			gpd.GeoSeries(row.geometry).is_simple
+		except:
+			broken_geometries.append(i)
+
+	broken_index = iso_clean.index.isin(broken_geometries)
+
+	iso_all_clean = iso_clean.iloc[~broken_index]
+
+	return iso_all_clean
 
