@@ -5,16 +5,19 @@ from pandas import DataFrame
 from geopandas import GeoDataFrame
 from shapely.geometry import Point, LineString, MultiLineString
 import osmnx as ox
-from utiles import get_coords_from_address, get_keys_from_json
-from api_keys import here_app_id, here_app_code
+from tools.utiles import get_coords_from_address, get_keys_from_json
+from tools.api_keys import here_app_id, here_app_code
 
 
 class TrafficData():
     """Includes methods to download, clean and converts and exports traffic data"""
 
-    def __init__(self, cityName):
-        self.city_name = cityName
-        self.city_coords = get_coords_from_address(cityName)
+    def __init__(self, cityName=None, cityCoords=None):
+        if not cityName is None:
+            self.city_name = cityName
+            self.city_coords = get_coords_from_address(cityName)
+        else:
+            self.city_coords = cityCoords
 
     def __str__(self):
         return 'TrafficData class for: \nCity: {} \nCoordinates: {}'.format(self.city_name, self.city_coords[0])
@@ -149,3 +152,4 @@ class TrafficData():
              'geometry': self.geometry})
 
         self.traffic_gdf = GeoDataFrame(geo_df, geometry='geometry')
+

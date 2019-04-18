@@ -47,7 +47,7 @@ stations_df.to_csv('data/test_station_df.csv')
 
 import geopandas as gpd
 import pandas as pd
-from tools.travel_time_pt import create_travel_time_df, get_accessibility_gdf
+from tools.travel_time_pt import get_accessibility_gdf
 from pandas import DataFrame
 import datetime
 
@@ -60,8 +60,42 @@ import datetime
 #
 # travel_time_test.to_csv('../data/freiburg/pt_accessibility.csv')
 
-travel_time_df = pd.read_csv('../data/freiburg/pt_accessibility.csv')
-pt_accessibility_pgd = get_accessibility_gdf(travel_time_df)
 
-pt_accessibility_pgd.to_file('../data/freiburg/pt_accessibility.shp')
+
+travel_time_df = pd.read_csv('../data/freiburg/pt_accessibility.csv')
+
+travel_time_df_renamed = travel_time_df.rename(columns={'station':'station_id'})
+
+travel_time_df = travel_time_df_renamed
+threshold = 0.5
+
+
+station_by_count = travel_time_df.groupby('station_id').count()
+
+station_by_count_filtered = station_by_count[station_by_count['travel_time'] > 10]
+
+station_by_count_filtered['travel_time'].hist()
+threshold_= station_by_count_filtered['travel_time'].quantile(0.3)
+
+threshold_ = len(station_by_count) * threshold
+
+connected_stations = station_by_count[station_by_count['travel_time'] > threshold_].index
+connected_stations = station_by_count
+mean_accessibility = travel_time_df.groupby('station_id').mean()
+mean_accessibility_filtered = mean_accessibility.loc[connected_stations]
+# mean_accessibility_filtered = mean_accessibility.loc[~mean_accessibility_filtered.index.isin(['NoID'])]
+mean_accessibility_filtered = mean_accessibility
+mean_accessibility_gpd = mean_accessibility_filtered[['travel_time', 'x', 'y']]
+geometry = [Point(xy) for xy in zip(mean_accessibility_gpd.x, mean_accessibility_gpd.y)]
+mean_accessibility_gpd['geometry'] = geometry
+mean_accessibility_gpd = GeoDataFrame(mean_accessibility_gpd, geometry='geometry')
+mean_accessibility_gpd.crs = {'init': 'epsg:4326'}
+mean_accessibility_gpd.reset_index(level=0, inplace=True)
+mean_accessibility_gpd = mean_accessibility_gpd[mean_accessibility_gpd['station_id'] != 'NoID']
+
+mean_accessibility_gpd
+
+pt_accessibility_pgd = get_accessibility_gdf(travel_time_df_renamed)
+
+mean_accessibility_gpd.to_file('../data/freiburg/pt_accessibility_filtered_all.geojson', driver='GeoJSON')
 

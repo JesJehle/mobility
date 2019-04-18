@@ -1,0 +1,29 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pylint = "*"
+
+[packages]
+pandas = "*"
+geopandas = "*"
+cartopy = "*"
+ipython = "*"
+scipy = "*"
+geotiler = "*"
+matplotlib = "*"
+descartes = "*"
+contextily = "*"
+natsort = "*"
+requests = "*"
+osmnx = "*"
+geocoder = "*"
+geoplot = "*"
+xlrd = "*"
+googlemaps = "*"
+jupyter = "*"
+
+[requires]
+python_version = "3.6"

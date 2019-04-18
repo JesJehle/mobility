@@ -7,8 +7,7 @@ from numpy import ceil
 from shapely.ops import nearest_points
 from numpy import round
 from math import sqrt
-
-
+from functools import lru_cache
 def get_coords_from_address(address):
     response = geocoder.osm(address)
     response_json = response.json
@@ -17,12 +16,12 @@ def get_coords_from_address(address):
 
     return [lat, lng]
 
-
+#@lru_cache(maxsize=10000)
 def get_keys(json, key, keyList):
     if isinstance(json, dict):
         for keys in json:
             if keys == key:
-                return(keyList.append(json[keys]).append(json[keys]))
+                return(keyList.append(json[keys]))
             get_keys(json[keys], key, keyList)
     if isinstance(json, list):
         for elements in json:

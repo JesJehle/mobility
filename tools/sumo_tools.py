@@ -15,7 +15,7 @@ import googlemaps
 
 
 # import api keys
-from api_keys import here_app_id, here_app_code, google_api_key
+from tools.api_keys import here_app_id, here_app_code, google_api_key
 
 
 def get_buildings(city_name):

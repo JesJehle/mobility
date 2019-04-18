@@ -1,0 +1,1 @@
+*/15 * 14 * * /home/jesjehle/.local/share/virtualenvs/sumo-m0mwaGXb/bin/python /home/jesjehle/Documents/Mobility/sumo/dev/get_traffic_upperrhine.py

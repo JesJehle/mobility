@@ -6,6 +6,8 @@ nuts_path = '../data/nuts/NUTS_RG_20M_2016_3035_LEVL_3.shp//'
 region_path = '../data/project_region/region.shp'
 kreise_path = '../data/vg250-ew_3112.utm32s.shape.ebenen/vg250-ew_ebenen/VG250_KRS.shp'
 
+
+
 nuts = gpd.read_file(nuts_path)
 region = gpd.read_file(region_path)
 kreise = gpd.read_file(kreise_path)
@@ -39,4 +41,24 @@ nuts_region.sort_values('area')
 nuts_region.plot(column='area', legend=True)
 
 
-dfg
+
+
+
+import pandas as pd
+import geopandas as gpd
+
+
+path = '../../data/project_region/CRS_ORK_ETRS89_2019.shp'
+path_names = '../../pamina/communes-pamina-2017.xlsx'
+
+
+kreise = gpd.read_file(path, encoding = 'ascii')
+kreise_smaler = kreise.dissolve(by='NAME77', aggfunc='sum')
+kreise_smaler.to_file('../../data/project_region/CRS_ORK_ETRS89_2019_name77.shp')
+
+pamina_names = pd.read_excel(path_names)
+
+pamina_names.Commune
+
+
+kreise[kreise['NAME'].isin(pamina_names.Commune)].plot()

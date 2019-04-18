@@ -3,31 +3,80 @@ import json
 from datetime import datetime
 from herepy import PublicTransitRoutingType
 import requests
-import herepy
-from utiles import get_coords_from_address
-from api_keys import here_app_code, here_app_id
+from tools.api_keys import here_app_code, here_app_id
 import geopandas as gpd
 import pandas as pd
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
-import folium
-import sys
-sys.path.append('/home/jesjehle/Documents/Mobility/sumo/tools')
-
-location = get_coords_from_address('Freiburg, Germany')
+from tools.utiles import get_coords_from_address
 # find stations in a radius
 find_stations_url = 'https://transit.api.here.com/v3/stations/by_geocoord.json'
-params = {}
-params['app_id'] = here_app_id
-params['app_code'] = here_app_code
-params['radius'] = 2000
-#params['center'] = ','.join(list(map(str, location)))
-params['max'] = 50
-#
+
 # response = requests.get(find_stations_url, params=params)
 # res = response.json()
 
-grid = gpd.read_file('freiburg_1_km_grid.shp')
+test_loaction = get_coords_from_address('Freiburg, Germany')
+
+from tools.travel_time_pt import PubTransRouter
+
+pt_routter = PubTransRouter(here_app_id, here_app_code)
+
+stations = pt_routter.find_station(test_loaction)
+
+
+
+# by id test !!!!
+# only possible for busses
+station = 'db_808280'
+params = {}
+params['app_id'] = here_app_id
+params['app_code'] = here_app_code
+params['stnId'] = station
+#params['center'] = ','.join(list(map(str, location)))
+params['time'] = '2019-06-24T07:30:00'
+params['max'] = 100
+
+info_by_id_url = 'https://transit.api.here.com/v3/board.json'
+
+response = requests.get(info_by_id_url, params=params)
+response.json()
+
+
+
+# next departure test
+test_loaction = get_coords_from_address('Ebringen, Germany')
+
+params = {}
+params['app_id'] = here_app_id
+params['app_code'] = here_app_code
+params['center'] = ','.join(list(map(str, test_loaction)))
+#params['center'] = ','.join(list(map(str, location)))
+params['time'] = '2019-06-24T10:30:00'
+params['max'] = 100
+params['maxStn'] = 40
+params['radius'] = 10000
+
+iso_url = 'https://transit.api.here.com/v3/multiboard/by_geocoord.json'
+
+response = requests.get(iso_url, params=params)
+res = response.json()
+
+
+for i in res['Res']['MultiNextDepartures']['MultiNextDeparture']:
+    print(i)
+
+
+
+for i in res['Res']['MultiNextDepartures']['MultiNextDeparture'][0]['NextDepartures']['Dep'][0]['Transport']['dir']:
+    print(i)
+
+
+
+
+
+
+
+
 
 y_coord = []
 x_coord = []

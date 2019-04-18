@@ -78,8 +78,8 @@ def get_type(grid, radius, type):
         flat_list = [item for sublist in col_list for item in sublist]
         return set(flat_list)
 
-
-grid = gpd.read_file('./data/freiburg/grid_1km_fr.shp')
+'./data/freiburg/grid_1km_fr.shp'
+grid = gpd.read_file('../data/freiburg/grid_1km_fr.shp')
 len(grid)
 
 # get supermarkets --------------------------------------------------

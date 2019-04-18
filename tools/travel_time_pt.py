@@ -166,7 +166,7 @@ def find_reached_stations(reached_stations_df: pd.DataFrame,
 	return reached_stations_index
 
 
-import betamax
+# import betamax
 
 
 class PubTransRouter:
@@ -182,11 +182,29 @@ class PubTransRouter:
 		self.session.params = {}
 		self.session.params['app_id'] = app_id
 		self.session.params['app_code'] = app_code
-		self.session.params['routing'] = 'tt'
 
 		self.HERE_TRANSIT_ROUTING_URL = 'https://transit.api.here.com/v3/route.json'
+		self.HERE_STATIONS_BY_GEOCODE_URL = 'https://transit.api.here.com/v3/stations/by_geocoord.json'
+
+	def find_station(self, yx:list, radius=1000):
+
+		self.session.params['radius'] = radius
+		self.session.params['max'] = 50
+		self.session.params['center'] = ','.join(list(map(str, yx)))
+
+		response = self.session.get(url=self.HERE_STATIONS_BY_GEOCODE_URL)
+
+		res_json = response.json()
+		# if not res_json['Res'].get('Message') is None:
+		# 	if not res_json['Res'].get('Message').get('subcode') == 'DEP_ARR_TOO_CLOSE':
+		# 		raise ValueError(res_json['Res'].get('Message'))
+
+		return res_json
+
 
 	def request_route(self, date_time:datetime, origin_yx:list, destination_yx:list, graph=True) -> dict:
+
+		self.session.params['routing'] = 'tt'
 		self.session.params['time'] = format_time_for_request(date_time)
 		self.session.params['graph'] = int(graph)
 		self.session.params['dep'] = ','.join(list(map(str, origin_yx)))
@@ -196,7 +214,15 @@ class PubTransRouter:
 		# CASSETTE_LIBRARY_DIR = 'data/cassettes/'
 		# match_on = ['uri']
 		#
-		# recorder = betamax.Betamax(
+		# recorder = betamax.
+		#
+		#
+		#
+		#
+		#
+		#
+		#
+		# (
 		# 	self.session, cassette_library_dir=CASSETTE_LIBRARY_DIR
 		# )
 		#
@@ -309,10 +335,10 @@ def create_travel_time_df(stations: gpd.GeoDataFrame, date_time: datetime):
 	return stations_df
 
 
-def get_accessibility_gdf(travel_time_df):
+def get_accessibility_gdf(travel_time_df, threshold = 0.5):
 	station_by_count = travel_time_df.groupby('station_id').count()
-	threshold = len(station_by_count) / 3
-	connected_stations = station_by_count[station_by_count['travel_time'] > threshold].index
+	threshold_ = len(station_by_count) * threshold
+	connected_stations = station_by_count[station_by_count['travel_time'] > threshold_].index
 
 	mean_accessibility = travel_time_df.groupby('station_id').mean()
 	mean_accessibility_filtered = mean_accessibility.loc[connected_stations]
@@ -329,7 +355,7 @@ def get_accessibility_gdf(travel_time_df):
 
 
 
-def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
+def get_iso_lines(points_gdf, point_id_column = 'station_id', times=[1, 5, 10, 15]):
 
 	iso_df = pd.DataFrame(columns=['station_id', 'iso_time','iso_dist', 'geometry'])
 
@@ -345,7 +371,7 @@ def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 	for time in times:
 
 		iso_df_temp = pd.DataFrame.from_dict(
-			{'station_id': points_gdf['station_id'].tolist()})
+			{'station_id': points_gdf[point_id_column].tolist()})
 
 		session.params['range'] = time * 60
 		iso_poly = []
@@ -369,7 +395,7 @@ def get_iso_lines(points_gdf, times=[1, 5, 10, 15]):
 
 
 		iso_df_temp['geometry'] = iso_poly
-		iso_df_temp['iso_time'] = pd.Series(points_gdf['travel_time'] + time).astype(int)
+		# iso_df_temp['iso_time'] = pd.Series(points_gdf['travel_time'] + time).astype(int)
 		iso_df_temp['iso_dist'] = time
 		iso_df = iso_df.append(iso_df_temp, sort=False)
 
@@ -426,4 +452,8 @@ def clean_clipped_iso(iso_clipped_gdf):
 	iso_all_clean = iso_clean.iloc[~broken_index]
 
 	return iso_all_clean
+
+
+
+
 
